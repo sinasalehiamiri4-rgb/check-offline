@@ -1225,7 +1225,7 @@
         </div>
       </div>
 
-      <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="importBackup(event)">
+      <input type="file" id="backupFileInput" style="display: none;" onchange="importBackup(event)">
     </header>
 
     <div id="todayAlert" class="alert-banner">
@@ -1505,7 +1505,7 @@
         </div>
         <div class="inst-tools-sec"><i class="fa-solid fa-circle-info"></i> نسخه برنامه</div>
         <div class="inst-version"><span>نسخه اقساط: <b>۱۴</b> (۱۴۰۵/۰۷/۲۵)</span><button type="button" class="inst-link" onclick="instHardRefresh()"><i class="fa-solid fa-arrows-rotate"></i> بروزرسانی صفحه</button></div>
-        <input type="file" id="instBackupFile" accept=".json" style="display: none;" onchange="importInstBackup(event)">
+        <input type="file" id="instBackupFile" style="display: none;" onchange="importInstBackup(event)">
       </div>
 
       <button type="button" class="inst-fab no-print" onclick="openInstForm()" aria-label="قسط جدید"><i class="fa-solid fa-plus"></i></button>
@@ -2466,15 +2466,16 @@
       };
 
       try { localStorage.setItem('last_backup_checks', Date.now()); } catch (e) {}
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' }));
       const downloadAnchor = document.createElement('a');
       const todayStr = getTodayJalaliNormalized().replace(/\//g, '-');
       
-      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("href", blobUrl);
       downloadAnchor.setAttribute("download", `پشتیبان_چک_و_حواله_${todayStr}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
     }
 
     function importBackup(event) {
@@ -2484,7 +2485,7 @@
       const reader = new FileReader();
       reader.onload = async function(e) {
         try {
-          const importedData = JSON.parse(e.target.result);
+          const importedData = JSON.parse(String(e.target.result).replace(/^\uFEFF/, '').trim());
           const importedChecks = importedData.checks || importedData;
           
           if (Array.isArray(importedChecks)) {
@@ -2507,9 +2508,10 @@
             alert('فرمت فایل پشتیبان معتبر نیست.');
           }
         } catch (err) {
-          alert('خطا در خواندن فایل پشتیبان!');
+          alert('خطا در خواندن فایل پشتیبان!\n(' + (err && err.message ? err.message : err) + ')');
         }
       };
+      reader.onerror = () => alert('فایل خوانده نشد؛ دوباره انتخاب کنید.');
       reader.readAsText(file);
       event.target.value = '';
     }
@@ -3656,12 +3658,13 @@
       const reader = new FileReader();
       reader.onload = async function (e) {
         try {
-          const d = JSON.parse(e.target.result), list = d.installments || d;
+          const d = JSON.parse(String(e.target.result).replace(/^\uFEFF/, '').trim()), list = d.installments || d;
           if (!Array.isArray(list) || (list.length && !list.some(x => x && x.id && x.bank))) { alert('فرمت فایل پشتیبان اقساط معتبر نیست.'); return; }
           if (!confirm('آیا مطمئن هستید؟ اقساط این فایل اضافه یا جایگزین می‌شوند (موارد فعلی حذف نمی‌شوند).')) return;
           await instMerge(list); xToast('اقساط با موفقیت بازیابی شد');
-        } catch (err) { alert('خطا در خواندن فایل پشتیبان!'); }
+        } catch (err) { alert('خطا در خواندن فایل پشتیبان!\n(' + (err && err.message ? err.message : err) + ')'); }
       };
+      reader.onerror = () => alert('فایل خوانده نشد؛ دوباره انتخاب کنید.');
       reader.readAsText(file); event.target.value = '';
     }
     async function autoInstBackup() {
